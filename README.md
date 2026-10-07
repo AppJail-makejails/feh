@@ -8,7 +8,9 @@ wikipedia.org/wiki/Feh_(image_viewer)
 
 ## How to use this AppJail
 
-For each new release, the AppJail can be obtained as an asset. [`sysutils/bin`](https://freshports.org/sysutils/bin) is a binary manager capable of downloading, installing, and updating, making it well-suited for our purposes.
+### General usage
+
+You can obtain the AppJail from the releases section of this repository. However, to go beyond a simple download and be able to update it conveniently from the console, the simplest complementary tool for our purposes is [sysutils/bin](https://freshports.org/sysutils/bin), a binary manager:
 
 ```console
 $ doas pkg install -y bin
@@ -45,15 +47,60 @@ KEY                                                                   COMMENT
 37e1a7da5478a29ec3d38ecb14919b107beab67cc0de0b473b5b018f018e1ccb.pub  dtxdf@disroot.org (x11appjail) public key
 ```
 
+A system-wide installation requires only root access; the key is not necessary. However, it is strongly recommended to verify the binary before installation, making it necessary to install the key anyway.
+
+```console
+$ x11appjail verify ~/bin/feh.appjail
+Signature Verified
+$ doas ~/bin/feh.appjail --install
+$ x11appjail run feh
+```
+
+An AppJail creates the jail only if it does not already exist or if the AppJail detects a valid change in its checksum (e.g.: after an update). This means that updates to the OCI image used by the AppJail are only checked at the creation time. If you need to update the OCI image, simply destroy the jail:
+
+```console
+$ x11appjail destroy-jail feh
+```
+
+Once you run the AppJail again, the OCI image is pulled again only if it is newer than the one on your system.
+### Examples
+
+If you run this AppJail specifying an existing regular file on the host, it will be transferred internally via stdin to the `feh(1)` process:
+
+```console
+$ ~/bin/feh.appjail /path/to/file
+```
+
+The last argument is always used as the file. However, this AppJail handles the concept of a URL. For example, the equivalent of the previous command is as follows:
+
+```console
+$ ~/bin/feh.appjail file:///path/to/file
+```
+
+If you specify a URL using another scheme, this AppJail also detects it and uses it as-is. This means that, for example, you can open a remote image using a protocol supported by `feh(1)`:
+
+```console
+$ ~/bin/feh.appjail https://cdn.bootprint.space/mars/2.png
+$ # Or if you has been installed this AppJail:
+$ x11appjail run feh https://picsum.photos/200
+```
+
+A special form is `jail://`, which means the specified path resides within the jail.
+
+```console
+$ x11appjail transfer /path/to/myimage.jpg feh:myimage.jpg
+$ ~/bin/feh.appjail jail://myimage.jpg
+```
 
 
-### User Attributes
+### Attributes
+#### User Attributes
 
 | Name | Description |
 | --- | --- |
 | `ephemeral` | Mark the jail as ephemeral. See `ephemeral` option in `appjail-quick(1)` for details.<br><br>Although the jail may be destroyed, its data is preserved in the user directory (see `${X11APPJAIL_USERDIR}` in `x11appjail-spec(5)`).<br>|
 
-### System Attributes
+#### System Attributes
 
 | Name | Description |
 | --- | --- |
@@ -83,3 +130,9 @@ build:
         NO_PKGCLEAN: "1"
       cache_dirs: ["pkgcache0:/var/cache/pkg"]
 ```
+
+## Notes
+
+1. Since the last argument is used as the file path, `--start-at` will not work, because the mechanism actually used to transfer the file from the host to the jail is `-`, meaning standard input is employed.
+2. The file is read with the privileges of the calling process; therefore, if that process lacks permission to read the file, a "Permission Denied" error will occur, just as it would with a regular program.
+3. If the last argument is `--`, the arguments are passed as-is, without transferring any file via stdin.
