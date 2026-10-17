@@ -1,5 +1,7 @@
 #!/bin/sh
 
+__dbus_session_mode="none"
+
 . "${X11APPJAIL_WORKDIR}/appjail.d/init.subr"
 . "${X11APPJAIL_WORKDIR}/appjail.d/network.subr"
 . "${X11APPJAIL_WORKDIR}/appjail.d/ephemeral.subr"
